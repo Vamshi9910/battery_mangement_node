@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battery Management System</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f2f4f8;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 20px;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+        width: 100%;
+        max-width: 900px;
+      }
+
+      form,
+      .search-section {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        width: 380px;
+        box-sizing: border-box;
+      }
+
+      label {
+        display: block;
+        margin-top: 10px;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+      }
+
+      button {
+        margin-top: 15px;
+        width: 100%;
+        padding: 10px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      #message,
+      #searchResult {
+        margin-top: 15px;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      pre {
+        text-align: left;
+        background: #f0f0f0;
+        padding: 10px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+
+      @media (max-width: 800px) {
+        .container {
+          flex-direction: column;
+          align-items: center;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>🔋 Battery Management System</h1>
+
+    <div class="container">
+      <!-- Battery Data Entry Form -->
+      <form id="batteryForm">
+        <h3>📤 Add Battery Data</h3>
+
+        <label for="battery_id">Battery ID</label>
+        <input type="text" id="battery_id" required />
+
+        <label for="current">Current (A)</label>
+        <input type="number" step="any" id="current" required />
+
+        <label for="voltage">Voltage (V)</label>
+        <input type="number" step="any" id="voltage" required />
+
+        <label for="temperature">Temperature (°C)</label>
+        <input type="number" step="any" id="temperature" required />
+
+        <label for="time">Time</label>
+        <input type="datetime-local" id="time" required />
+
+        <button type="submit">Submit</button>
+        <div id="message"></div>
+      </form>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <h3>🔍 Retrieve Battery Data</h3>
+
+        <label for="search_battery_id">Battery ID</label>
+        <input type="text" id="search_battery_id" placeholder="e.g. 1001" required />
+
+        <label for="search_field">Field (optional)</label>
+        <select id="search_field">
+          <option value="">All Data</option>
+          <option value="current">Current</option>
+          <option value="voltage">Voltage</option>
+          <option value="temperature">Temperature</option>
+        </select>
+
+        <label for="start">Start Time (optional)</label>
+        <input type="datetime-local" id="start" />
+
+        <label for="end">End Time (optional)</label>
+        <input type="datetime-local" id="end" />
+
+        <button id="searchBtn">Search</button>
+        <div id="searchResult"></div>
+      </div>
+    </div>
+
+    <script>
+      const apiBase = "/api/battery";
+      const form = document.getElementById("batteryForm");
+      const messageDiv = document.getElementById("message");
+      const searchBtn = document.getElementById("searchBtn");
+      const searchResult = document.getElementById("searchResult");
+
+      // POST: Add new battery data
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const batteryData = {
+          battery_id: document.getElementById("battery_id").value,
+          current: parseFloat(document.getElementById("current").value),
+          voltage: parseFloat(document.getElementById("voltage").value),
+          temperature: parseFloat(document.getElementById("temperature").value),
+          time: new Date(document.getElementById("time").value).toISOString(),
+        };
+
+        messageDiv.textContent = "Submitting...";
+
+        try {
+          const response = await fetch(`${apiBase}/data`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(batteryData),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            messageDiv.textContent = "✅ Data saved successfully!";
+            form.reset();
+          } else {
+            messageDiv.textContent = "❌ Error: " + data.message;
+          }
+        } catch (error) {
+          messageDiv.textContent = "⚠️ Network error, try again.";
+          console.error(error);
+        }
+      });
+
+      // GET: Search battery data
+      searchBtn.addEventListener("click", async () => {
+        const id = document.getElementById("search_battery_id").value.trim();
+        const field = document.getElementById("search_field").value;
+        const start = document.getElementById("start").value;
+        const end = document.getElementById("end").value;
+
+        if (!id) {
+          alert("Please enter Battery ID");
+          return;
+        }
+
+        let url = `${apiBase}/${id}`;
+        if (field) url += `/${field}`;
+        if (start && end)
+          url += `?start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}`;
+
+        searchResult.textContent = "Searching...";
+
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (response.ok) {
+            searchResult.innerHTML =
+              "<strong>Results:</strong><pre>" + JSON.stringify(data, null, 2) + "</pre>";
+          } else {
+            searchResult.textContent = "❌ Error: " + data.message;
+          }
+        } catch (error) {
+          searchResult.textContent = "⚠️ Network error, try again.";
+          console.error(error);
+        }
+      });
+    </script>
+  </body>
+</html>
